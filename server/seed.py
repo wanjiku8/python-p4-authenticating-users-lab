@@ -1,55 +1,59 @@
-#!/usr/bin/env python3
+# server/app.py
 
-from random import randint
+from flask import Flask, session, jsonify, request
+from flask_restful import Api, Resource
+from flask_migrate import Migrate
+from flask_cors import CORS
+from models import db, User
 
-from faker import Faker
+app = Flask(__name__)
+app.config.update(
+    SQLALCHEMY_DATABASE_URI='sqlite:///app.db',
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SECRET_KEY='super-secret-key',  # Required for session encryption
+    SESSION_COOKIE_SAMESITE='None',  # Allows cross-origin cookies
+    SESSION_COOKIE_SECURE=True,     # Requires HTTPS in production
+)
 
-from app import app
-from models import db, Article, User
+# Configure CORS
+CORS(app, 
+    resources={r"/*": {"origins": "http://localhost:3000"}},
+    supports_credentials=True
+)
 
-fake = Faker()
+migrate = Migrate(app, db)
+db.init_app(app)
+api = Api(app)
 
-with app.app_context():
-
-    print("Deleting all records...")
-    Article.query.delete()
-    User.query.delete()
-
-    fake = Faker()
-
-    print("Creating users...")
-    users = []
-    usernames = []
-    for i in range(25):
-
-        username = fake.first_name()
-        while username in usernames:
-            username = fake.first_name()
+class Login(Resource):
+    def post(self):
+        data = request.get_json()
+        user = User.query.filter_by(username=data.get('username')).first()
         
-        usernames.append(username)
+        if not user:
+            return {'error': 'Invalid username'}, 401
+            
+        session['user_id'] = user.id
+        return user.to_dict(), 200
 
-        user = User(username=username)
-        users.append(user)
+class Logout(Resource):
+    def delete(self):
+        if 'user_id' in session:
+            session.pop('user_id')
+        return '', 204
 
-    db.session.add_all(users)
 
-    print("Creating articles...")
-    articles = []
-    for i in range(100):
-        content = fake.paragraph(nb_sentences=8)
-        preview = content[:25] + '...'
-        
-        article = Article(
-            author=fake.name(),
-            title=fake.sentence(),
-            content=content,
-            preview=preview,
-            minutes_to_read=randint(1,20),
-        )
+class CheckSession(Resource):
+    def get(self):
+        user_id = session.get('user_id')
+        if user_id:
+            user = User.query.get(user_id)
+            return user.to_dict(), 200
+        return {'error': 'Unauthorized'}, 401
 
-        articles.append(article)
+api.add_resource(Login, '/login')
+api.add_resource(Logout, '/logout')
+api.add_resource(CheckSession, '/check_session')
 
-    db.session.add_all(articles)
-    
-    db.session.commit()
-    print("Complete.")
+if __name__ == '__main__':
+    app.run(port=5555, debug=True)

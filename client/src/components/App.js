@@ -1,3 +1,4 @@
+// App.js - Updated with proper session handling
 import { useState, useEffect } from "react";
 import { Switch, Route } from "react-router-dom";
 import Article from "./Article";
@@ -9,7 +10,10 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetch("/check_session").then((response) => {
+    // Check session with credentials
+    fetch("/check_session", {
+      credentials: "include" // ADDED THIS LINE
+    }).then((response) => {
       if (response.ok) {
         response.json().then((user) => setUser(user));
       }
@@ -21,7 +25,13 @@ function App() {
   }
 
   function handleLogout() {
-    setUser(null);
+    // Proper logout implementation
+    fetch("/logout", {
+      method: "DELETE",
+      credentials: "include" // ADDED THIS LINE
+    }).then(() => {
+      setUser(null);
+    });
   }
 
   return (

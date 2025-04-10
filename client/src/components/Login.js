@@ -1,3 +1,4 @@
+// Login.js - Updated with credentials
 import { useState } from "react";
 
 function Login({ onLogin }) {
@@ -11,6 +12,7 @@ function Login({ onLogin }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ username }),
+      credentials: "include" // ADDED THIS LINE
     }).then((r) => {
       if (r.ok) {
         r.json().then((user) => onLogin(user));
